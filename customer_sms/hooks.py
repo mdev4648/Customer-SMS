@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/customer_sms/css/customer_sms.css"
-# app_include_js = "/assets/customer_sms/js/customer_sms.js"
+app_include_js = "/assets/customer_sms/js/sms.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/customer_sms/css/customer_sms.css"
@@ -43,8 +43,10 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_js = {"Client SMS Log": "customer_sms/client_scripts/client_sms_log.js"}
+doctype_list_js = {
+    "Client SMS Log": "customer_sms/client_scripts/client_sms_log_list.js"
+}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -132,33 +134,30 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "sms": {"on_submit": "customer_sms.api.send_sms_on_submit"},
+    "Sales Order": {
+        "validate": "customer_sms.customer_sms.overrides.sales_order.validate_sales_order"
+    },
+}
 
 # Scheduled Tasks
 # ---------------
 
 # scheduler_events = {
-# 	"all": [
-# 		"customer_sms.tasks.all"
-# 	],
-# 	"daily": [
-# 		"customer_sms.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"customer_sms.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"customer_sms.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"customer_sms.tasks.monthly"
-# 	],
+# "all": ["customer_sms.jobs.sync_sms_log.sync_sms_logs"],
+# "daily": [
+# 	"customer_sms.tasks.daily"
+# ],
+# "hourly": [
+# 	"customer_sms.tasks.hourly"
+# ],
+# "weekly": [
+# 	"customer_sms.tasks.weekly"
+# ],
+# "monthly": [
+# 	"customer_sms.tasks.monthly"
+# ],
 # }
 
 # Testing
@@ -244,4 +243,3 @@ app_license = "mit"
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
