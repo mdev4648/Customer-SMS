@@ -202,68 +202,6 @@ def resend_sms(log_id):
         return {"status": "error", "msg": str(e)}
 
 
-# @frappe.whitelist(allow_guest=True)
-# def update_sms_status(log_id, status):
-#     """
-#     Central server will call this after sending SMS.
-#     Updates Client SMS Log status.
-#     """
-#     log = frappe.db.exists("Client SMS Log", {"log_id": log_id})
-#     if not log:
-#         return {"status": "error", "msg": f"Log {log_id} not found on client"}
-
-#     frappe.db.set_value("Client SMS Log", log, "status", status)
-#     frappe.db.commit()
-
-#     return {"status": "ok"}
-
-
-# @frappe.whitelist(allow_guest=True)
-# def update_sms_status(log_id, status, phone=None, message=None, customer_site=None):
-#     """
-#     Central server will call this after sending SMS.
-#     Updates or creates Client SMS Log status.
-#     """
-
-#     # Try to find existing log
-#     existing_log = frappe.db.exists("Client SMS Log", {"log_id": log_id})
-
-#     if existing_log:
-#         # Update existing log
-#         frappe.db.set_value("Client SMS Log", existing_log, "status", status)
-#         frappe.db.commit()
-#         return {"status": "ok", "msg": "Log updated"}
-#     else:
-#         # Create new log if details are available
-#         if not phone or not message:
-#             return {
-#                 "status": "error",
-#                 "msg": "Phone and message required to create new Client SMS Log",
-#             }
-
-#         log_doc = frappe.get_doc(
-#             {
-#                 "doctype": "Client SMS Log",
-#                 "log_id": log_id,  # central log id reference
-#                 "phone": phone,
-#                 "message": message,
-#                 "status": status,
-#                 "customer_site": customer_site or frappe.local.site,
-#             }
-#         )
-
-#         log_doc.insert(ignore_permissions=True)
-#         frappe.db.commit()
-
-#         if status == "Failed":
-#             frappe.msgprint(
-#                 f"SMS delivery to {phone} FAILED. Please try resending.",
-#                 indicator="red",
-#                 alert=True,
-#             )
-
-
-#         return {"status": "ok", "msg": "Log created"}
 @frappe.whitelist(allow_guest=True)
 def update_sms_status(log_id, status, phone=None, message=None, customer_site=None):
     """
