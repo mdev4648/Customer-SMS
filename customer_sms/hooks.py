@@ -43,7 +43,10 @@ app_include_js = "/assets/customer_sms/js/sms.js"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"Client SMS Log": "customer_sms/client_scripts/client_sms_log.js"}
+doctype_js = {
+    "Client SMS Log": "customer_sms/client_scripts/client_sms_log.js",
+    "Bulk SMS": "customer_sms/client_scripts/bulk_sms.js",
+}
 doctype_list_js = {
     "Client SMS Log": "customer_sms/client_scripts/client_sms_log_list.js"
 }
@@ -139,6 +142,7 @@ doc_events = {
     "Sales Order": {
         "validate": "customer_sms.customer_sms.overrides.sales_order.validate_sales_order"
     },
+    "Bulk SMS": {"on_submit": "customer_sms.api.enqueue_bulk_sms"},
 }
 
 # Scheduled Tasks
