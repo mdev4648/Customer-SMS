@@ -13,9 +13,9 @@ IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
 
-class IntegrationTestCustomSmsSetting(IntegrationTestCase):
+class IntegrationTestMYSMSSetting(IntegrationTestCase):
 	"""
-	Integration tests for CustomSmsSetting.
+	Integration tests for MYSMSSetting.
 	Use this class for testing interactions between multiple components.
 	"""
 

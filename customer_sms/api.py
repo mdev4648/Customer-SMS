@@ -5,39 +5,6 @@ from frappe.utils.background_jobs import enqueue
 import re
 import time
 
-# def send_sms_on_submit(doc, method):
-#     import requests
-#     import json
-
-#     phone = doc.phone
-#     message = doc.message
-
-#     if not phone or not message:
-#         frappe.throw("Phone and message are required to send SMS.")
-
-#     settings = frappe.get_single("Custom Sms Setting")
-#     CENTRAL_SMS_API = settings.central_api_url
-#     CENTRAL_API_KEY = settings.api_key
-
-#     url = f"{CENTRAL_SMS_API}/api/method/haron_forex.api.send_sms_from_central"
-
-#     payload = {
-#         "phone": phone,
-#         "message": message,
-#         "api_key": CENTRAL_API_KEY,
-#         "customer_site": frappe.local.site,
-#         "callback_url": f"{frappe.utils.get_url()}/api/method/customer_sms.api.update_sms_status",
-#     }
-
-#     headers = {"Content-Type": "application/json"}
-
-#     try:
-#         res = requests.post(url, json=payload, headers=headers, timeout=10)
-#         res.raise_for_status()
-#     except Exception as e:
-#         frappe.log_error(frappe.get_traceback(), "SMS Sending Failed")
-#         frappe.throw(str(e))
-
 
 @frappe.whitelist()
 def send_sms_on_submit(doc, method):
@@ -47,11 +14,11 @@ def send_sms_on_submit(doc, method):
     if not phone or not message:
         frappe.throw("Phone and message are required to send SMS.")
 
-    settings = frappe.get_single("Custom Sms Setting")
+    settings = frappe.get_single("MY SMS Setting")
     CENTRAL_SMS_API = settings.central_api_url
     CENTRAL_API_KEY = settings.api_key
 
-    url = f"{CENTRAL_SMS_API}/api/method/haron_forex.api.send_sms_from_central"
+    url = f"{CENTRAL_SMS_API}/api/method/haron_sms_gateway.api.send_sms_from_central"
 
     payload = {
         "phone": phone,
@@ -59,6 +26,7 @@ def send_sms_on_submit(doc, method):
         "api_key": CENTRAL_API_KEY,
         "customer_site": frappe.local.site,
         "callback_url": f"{frappe.utils.get_url()}/api/method/customer_sms.api.update_sms_status",
+        "sender_name": settings.sender_name,
     }
 
     headers = {"Content-Type": "application/json"}
@@ -85,9 +53,11 @@ def send_sms_on_submit(doc, method):
                 elif "message" in error_json:
                     msg = error_json.get("message")
 
-                frappe.throw(msg)
+                # frappe.throw(msg)
+
             except Exception:
-                frappe.throw(res.text)
+
+                frappe.throw("")
 
         # Success: unwrap response
         response_json = res.json()
@@ -96,7 +66,7 @@ def send_sms_on_submit(doc, method):
         if data.get("status") == "queued":
             frappe.msgprint(f"SMS queued successfully for {phone}")
         else:
-            frappe.throw(f"Unexpected Response: {data}")
+            frappe.throw(f"{data["message"]}")  # error message on submit
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "SMS Sending Failed")
@@ -112,11 +82,13 @@ def resend_sms(log_id):
         frappe.throw("Only Failed SMS can be resent")
 
     # Get settings
-    settings = frappe.get_single("Custom Sms Setting")
+    settings = frappe.get_single("MY SMS Setting")
     CENTRAL_SERVER_URL = settings.central_api_url
     CENTRAL_API_KEY = settings.api_key
 
-    central_resend_url = f"{CENTRAL_SERVER_URL}/api/method/haron_forex.api.resend_sms"
+    central_resend_url = (
+        f"{CENTRAL_SERVER_URL}/api/method/haron_sms_gateway.api.resend_sms"
+    )
 
     try:
         res = requests.post(
@@ -158,54 +130,15 @@ def resend_sms(log_id):
 
 
 @frappe.whitelist(allow_guest=True)
-# def update_sms_status(log_id, status, phone=None, message=None, customer_site=None):
-#     """
-#     Central server will call this after sending SMS.
-#     Updates or creates Client SMS Log status.
-#     """
-
-#     existing_log = frappe.db.exists("Client SMS Log", {"log_id": log_id})
-
-#     if existing_log:
-#         frappe.db.set_value("Client SMS Log", existing_log, "status", status)
-#     else:
-#         if not phone or not message:
-#             return {
-#                 "status": "error",
-#                 "msg": "Phone and message required to create new Client SMS Log",
-#             }
-
-#         log_doc = frappe.get_doc(
-#             {
-#                 "doctype": "Client SMS Log",
-#                 "log_id": log_id,
-#                 "phone": phone,
-#                 "message": message,
-#                 "status": status,
-#                 "customer_site": customer_site or frappe.local.site,
-#             }
-#         )
-#         log_doc.insert(ignore_permissions=True)
-
-#     frappe.db.commit()
-
-#     if status == "Failed":
-#         frappe.publish_realtime(
-#             event="sms_status_update",
-#             message={"phone": phone, "status": status, "log_id": log_id},
-#             user=None,
-#         )
-#         frappe.logger().info(f"Realtime SMS Failed event sent for {phone}")
-
-
-#     return {"status": "ok", "msg": f"Log {status.lower()}"}
-# customer_sms/customer_sms/api.py (same file)
-@frappe.whitelist(allow_guest=True)
-def update_sms_status(log_id, status, phone=None, message=None, customer_site=None):
+def update_sms_status(
+    log_id, status, phone=None, message=None, customer_site=None, sms_sent_today=None
+):
     """
     Callback endpoint called by central server after processing.
     Create/update Client SMS Log and update Bulk SMS Result (if any).
     """
+
+    # print(f"\n\n {log_id} {log.sms_count} \n\n\n\n\n\n\n")
 
     # Update or create Client SMS Log
     existing_log = frappe.db.exists("Client SMS Log", {"log_id": log_id})
@@ -229,11 +162,42 @@ def update_sms_status(log_id, status, phone=None, message=None, customer_site=No
                 "message": message,
                 "status": status,
                 "customer_site": customer_site or frappe.local.site,
+                "sms_sent_today": sms_sent_today or 0,
             }
         )
         doc.insert(ignore_permissions=True)
 
     frappe.db.commit()
+    # update my sms setting
+
+    try:
+        sms_doc = frappe.get_single("MY SMS Setting")
+        if sms_doc.api_key and sms_doc.central_api_url:
+            api_url = f"{sms_doc.central_api_url}/api/method/haron_sms_gateway.api.get_api_key_info"
+            params = {
+                "api_key": sms_doc.api_key,
+                "customer_site": sms_doc.customer_site or frappe.local.site,
+            }
+
+            res = requests.get(api_url, params=params, timeout=10)
+            if res.status_code == 200 and res.json().get("message"):
+                info = res.json()["message"]
+
+                # --- Update fields directly ---
+                sms_doc.valid_from = info.get("valid_from")
+                sms_doc.valid_upto = info.get("valid_upto")
+                sms_doc.status = info.get("status")
+                sms_doc.daily_limit = info.get("daily_limit")
+                sms_doc.sms_sent_today = info.get("sms_sent_today")
+                sms_doc.remaining = info.get("remaining")
+
+                sms_doc.save(ignore_permissions=True)
+                frappe.db.commit()
+
+                frappe.logger().info("MY SMS Setting auto-updated after SMS callback")
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Auto-update MY SMS Setting Failed")
 
     # Update Bulk SMS Result row (if exists)
     try:
@@ -261,7 +225,7 @@ def update_sms_status(log_id, status, phone=None, message=None, customer_site=No
     return {"status": "ok"}
 
 
-CENTRAL_SEND_METHOD = "haron_forex.api.send_sms_from_central"
+CENTRAL_SEND_METHOD = "haron_sms_gateway.api.send_sms_from_central"
 
 
 def enqueue_bulk_sms(doc, method):
@@ -274,6 +238,9 @@ def enqueue_bulk_sms(doc, method):
     )
 
 
+CENTRAL_SEND_METHOD = "haron_sms_gateway.api.send_sms_from_central"
+
+
 @frappe.whitelist()
 def process_bulk_sms(bulk_name):
     """
@@ -282,19 +249,16 @@ def process_bulk_sms(bulk_name):
      - call central send API for each phone
      - populate Bulk SMS Result rows
      - create Client SMS Log entries (Queued) for each recipient
+     - maintain accurate sent/failed counters
     """
     bulk = frappe.get_doc("Bulk SMS", bulk_name)
     bulk.status = "Processing"
-    bulk.sent_count = 0
-    bulk.failed_count = 0
-    bulk.db_update()
-    frappe.db.commit()
+    frappe.db.set_value("Bulk SMS", bulk.name, "status", "Processing")
 
-    settings = frappe.get_single("Custom Sms Setting")
-    central_base = (settings.central_api_url or "").rstrip(
-        "/"
-    )  # e.g. http://127.0.0.1:8005
+    settings = frappe.get_single("MY SMS Setting")
+    central_base = (settings.central_api_url or "").rstrip("/")
     api_key = settings.api_key
+    sender_name = settings.sender_name
     callback_url = (
         f"{frappe.utils.get_url()}/api/method/customer_sms.api.update_sms_status"
     )
@@ -304,102 +268,97 @@ def process_bulk_sms(bulk_name):
     phones = [p.strip() for p in re.split(r"[\n,;]+", raw) if p.strip()]
 
     total = len(phones)
-    bulk.created_count = total
-    bulk.db_update()
-    frappe.db.commit()
+    frappe.db.set_value("Bulk SMS", bulk.name, "created_count", total)
+
+    sent_count = 0
+    failed_count = 0
 
     for idx, phone in enumerate(phones):
-        # Add a result row (Pending) so user sees progress even if process errors
+        row_name = None
         try:
+            # Add a result row (Pending)
             bulk.append("results", {"phone": phone, "status": "Pending"})
-            bulk.db_update()
+            bulk.save(ignore_permissions=True)
             frappe.db.commit()
-            # The appended child row name:
-            # get last child row docname
+
             last_child = bulk.get("results")[-1]
             row_name = last_child.name
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Failed to append Bulk SMS Result")
-            row_name = None
 
         try:
-            # Prepare payload for central
             payload = {
                 "phone": phone,
                 "message": bulk.message,
                 "api_key": api_key,
                 "customer_site": frappe.local.site,
                 "callback_url": callback_url,
+                "sender_name": sender_name,
             }
 
             send_url = f"{central_base}/api/method/{CENTRAL_SEND_METHOD}"
-
             resp = requests.post(send_url, json=payload, timeout=15)
+
+            # Handle non-JSON or failed response
             try:
                 resp_json = resp.json()
             except Exception:
-                # non-json response
+                failed_count += 1
                 if row_name:
                     frappe.db.set_value("Bulk SMS Result", row_name, "status", "Failed")
                     frappe.db.set_value(
                         "Bulk SMS Result",
                         row_name,
                         "error_message",
-                        f"Central non-json response: {resp.text[:300]}",
+                        f"Central non-JSON response: {resp.text[:300]}",
                     )
-                bulk.failed_count = (bulk.failed_count or 0) + 1
-                bulk.db_update()
                 frappe.db.commit()
                 continue
 
             data = resp_json.get("message", resp_json)
 
+            # Central response handling
             if isinstance(data, dict) and data.get("status") == "queued":
                 central_log_id = data.get("log_id")
+                sent_count += 1
+
                 if row_name:
                     frappe.db.set_value("Bulk SMS Result", row_name, "status", "Queued")
                     frappe.db.set_value(
                         "Bulk SMS Result", row_name, "central_log_id", central_log_id
                     )
-                # create Client SMS Log locally (so list shows it)
-                if not frappe.db.exists("Client SMS Log", {"log_id": central_log_id}):
-                    try:
-                        frappe.get_doc(
-                            {
-                                "doctype": "Client SMS Log",
-                                "log_id": central_log_id,
-                                "phone": phone,
-                                "message": bulk.message,
-                                "status": "Queued",
-                                "customer_site": frappe.local.site,
-                            }
-                        ).insert(ignore_permissions=True)
-                    except Exception:
-                        # ignore duplicates or insertion problems
-                        pass
 
-                bulk.sent_count = (bulk.sent_count or 0) + 1
+                # Create Client SMS Log
+                if not frappe.db.exists("Client SMS Log", {"log_id": central_log_id}):
+                    frappe.get_doc(
+                        {
+                            "doctype": "Client SMS Log",
+                            "log_id": central_log_id,
+                            "phone": phone,
+                            "sender_name": sender_name,
+                            "message": bulk.message,
+                            "status": "Queued",
+                            "customer_site": frappe.local.site,
+                        }
+                    ).insert(ignore_permissions=True)
+
             else:
-                # central returned error
-                err_msg = data.get("msg") if isinstance(data, dict) else str(data)
+                failed_count += 1
+                err_msg = data.get("message") if isinstance(data, dict) else str(data)
                 if row_name:
                     frappe.db.set_value("Bulk SMS Result", row_name, "status", "Failed")
                     frappe.db.set_value(
                         "Bulk SMS Result", row_name, "error_message", err_msg
                     )
-                bulk.failed_count = (bulk.failed_count or 0) + 1
 
-            # progress commit occasionally
+            # Progress commit occasionally
             if idx % 10 == 0:
-                bulk.db_update()
                 frappe.db.commit()
 
-            # throttle if needed (set small sleep)
-            # time.sleep(0.0)
-
         except Exception:
+            failed_count += 1
             frappe.log_error(
-                frappe.get_traceback(), "process_bulk_sms failed for a recipient"
+                frappe.get_traceback(), f"process_bulk_sms failed for {phone}"
             )
             if row_name:
                 frappe.db.set_value("Bulk SMS Result", row_name, "status", "Failed")
@@ -409,11 +368,14 @@ def process_bulk_sms(bulk_name):
                     "error_message",
                     "Internal error - check logs",
                 )
-            bulk.failed_count = (bulk.failed_count or 0) + 1
-            bulk.db_update()
             frappe.db.commit()
 
-    # finalize
-    bulk.status = "Completed"
-    bulk.db_update()
+    # Finalize totals and status
+    frappe.db.set_value("Bulk SMS", bulk.name, "sent_count", sent_count)
+    frappe.db.set_value("Bulk SMS", bulk.name, "failed_count", failed_count)
+    frappe.db.set_value("Bulk SMS", bulk.name, "status", "Completed")
+
     frappe.db.commit()
+    frappe.logger().info(
+        f"Bulk SMS '{bulk.name}' completed: Sent={sent_count}, Failed={failed_count}"
+    )

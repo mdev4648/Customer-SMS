@@ -1,57 +1,3 @@
-# import frappe, requests
-
-
-# @frappe.whitelist()
-# def sync_sms_logs():
-#     settings = frappe.get_single("Custom Sms Setting")  # client config
-#     central_url = settings.central_api_url
-#     api_key = settings.api_key
-#     customer_site = frappe.local.site
-
-#     try:
-#         res = requests.get(
-#             f"{central_url}/api/method/haron_forex.api.get_sms_logs",
-#             params={"api_key": api_key, "customer_site": customer_site},
-#             timeout=10,
-#         )
-#         data = res.json()
-
-#         if "message" in data:
-#             for log in data["message"]:
-#                 # Check if log exists locally
-#                 if frappe.db.exists("Client SMS Log", {"log_id": log["name"]}):
-#                     local_log = frappe.get_doc(
-#                         "Client SMS Log", {"log_id": log["name"]}
-#                     )
-
-#                     # Update only if client has it as "Failed" but server has new status
-#                     if local_log.status == "Failed" and log["status"] != "Failed":
-#                         local_log.phone = log["phone"]
-#                         local_log.message = log["message"]
-#                         local_log.status = log["status"]
-#                         local_log.creation_time = log["creation"]
-#                         local_log.save(ignore_permissions=True)
-
-#                 else:
-#                     # Insert new logs anyway
-#                     doc = frappe.get_doc(
-#                         {
-#                             "doctype": "Client SMS Log",
-#                             "log_id": log["name"],
-#                             "phone": log["phone"],
-#                             "message": log["message"],
-#                             "status": log["status"],
-#                             "creation_time": log["creation"],
-#                         }
-#                     )
-#                     doc.insert(ignore_permissions=True)
-
-#             frappe.db.commit()
-
-#     except Exception:
-#         frappe.log_error(frappe.get_traceback(), "Sync SMS Logs Failed")
-
-
 import frappe, requests
 from frappe.utils import now
 
@@ -61,14 +7,14 @@ def sync_sms_logs():
     """
     Sync SMS logs from central server and notify users if any SMS failed.
     """
-    settings = frappe.get_single("Custom Sms Setting")  # client config
+    settings = frappe.get_single("MY SMS Setting")  # client config
     central_url = settings.central_api_url
     api_key = settings.api_key
     customer_site = frappe.local.site
 
     try:
         res = requests.get(
-            f"{central_url}/api/method/haron_forex.api.get_sms_logs",
+            f"{central_url}/api/method/haron_sms_gateway.api.get_sms_logs",
             params={"api_key": api_key, "customer_site": customer_site},
             timeout=10,
         )
