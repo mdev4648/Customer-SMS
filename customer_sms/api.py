@@ -14,7 +14,24 @@ def send_sms_on_submit(doc, method):
     if not phone or not message:
         frappe.throw("Phone and message are required to send SMS.")
 
-    settings = frappe.get_single("MY SMS Setting")
+    # settings = frappe.get_doc("MY SMS Setting",'2b9i4l96i7')
+    settings = frappe.db.get_value(
+        "MY SMS Setting",
+        {
+            "sender_name": doc.sender_name,
+            "docstatus": 1,
+        },
+        [
+            "api_key",
+            "central_api_url",
+            "sender_name",
+        ],
+        as_dict=True,
+    )
+
+    if not settings:
+        frappe.throw("MY SMS Setting is not configured properly.")
+
     CENTRAL_SMS_API = settings.central_api_url
     CENTRAL_API_KEY = settings.api_key
 
@@ -70,7 +87,8 @@ def send_sms_on_submit(doc, method):
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "SMS Sending Failed")
-        frappe.throw(str(e))
+        # frappe.throw(str(e))
+        frappe.throw("")
 
 
 @frappe.whitelist()
@@ -131,7 +149,13 @@ def resend_sms(log_id):
 
 @frappe.whitelist(allow_guest=True)
 def update_sms_status(
-    log_id, status, phone=None, message=None, customer_site=None, sms_sent_today=None
+    log_id,
+    status,
+    phone=None,
+    message=None,
+    customer_site=None,
+    sms_sent_today=None,
+    api_key=None,
 ):
     """
     Callback endpoint called by central server after processing.
@@ -168,10 +192,20 @@ def update_sms_status(
         doc.insert(ignore_permissions=True)
 
     frappe.db.commit()
+
     # update my sms setting
 
     try:
-        sms_doc = frappe.get_single("MY SMS Setting")
+        doc_name = frappe.db.get_value("MY SMS Setting", {"api_key": api_key}, "name")
+        if not doc_name:
+            frappe.log_error(
+                f"No MY SMS Setting found for API Key: {api_key}",
+                "Callback Update Failed",
+            )
+            return {"status": "error", "message": "No matching MY SMS Setting"}
+
+        sms_doc = frappe.get_doc("MY SMS Setting", doc_name)
+
         if sms_doc.api_key and sms_doc.central_api_url:
             api_url = f"{sms_doc.central_api_url}/api/method/haron_sms_gateway.api.get_api_key_info"
             params = {
@@ -379,3 +413,73 @@ def process_bulk_sms(bulk_name):
     frappe.logger().info(
         f"Bulk SMS '{bulk.name}' completed: Sent={sent_count}, Failed={failed_count}"
     )
+
+
+@frappe.whitelist(allow_guest=True)
+def update_my_sms_setting(data=None):
+    """Called by central server to update client's MY SMS Setting"""
+    if not data:
+        return {"status": "error", "msg": "No data received"}
+
+    if isinstance(data, str):
+        import json
+
+        data = json.loads(data)
+
+    api_key = data.get("api_key")
+    if not api_key:
+        return {"status": "error", "msg": "Missing api_key in request"}
+
+    fields = [
+        "valid_from",
+        "valid_upto",
+        "status",
+        # "daily_limit",
+        "limit_type",
+        "limit_value",
+        "sms_sent_today",
+        "remaining",
+    ]
+
+    doc_name = frappe.db.get_value("MY SMS Setting", {"api_key": api_key}, "name")
+    if not doc_name:
+        return {
+            "status": "error",
+            "msg": f"No MY SMS Setting found for API key {api_key}",
+        }
+
+    doc = frappe.get_doc("MY SMS Setting", doc_name)
+
+    # Update allowed fields
+    for f in fields:
+        if f in data:
+            doc.set(f, data[f])
+
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "status": "success",
+        "msg": f"MY SMS Setting for API key {api_key} updated successfully",
+    }
+
+
+@frappe.whitelist()
+def request_sms_update(api_key, central_server_url):
+    """Call central server to get the latest SMS Gateway info"""
+    # central_server_url = (
+    #     "https://central-server.com"  # Change to your real central server domain
+    # )
+
+    client_base_url = frappe.utils.get_url()  # e.g. http://client.local
+
+    payload = {"api_key": api_key, "client_base_url": "http://testsms.com:8000"}
+
+    url = f"{central_server_url}/api/method/haron_sms_gateway.api.send_client_apikey_update"
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "msg": f"Failed to contact central server: {str(e)}"}

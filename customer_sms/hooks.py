@@ -46,6 +46,7 @@ app_include_js = "/assets/customer_sms/js/sms.js"
 doctype_js = {
     "Client SMS Log": "customer_sms/client_scripts/client_sms_log.js",
     "Bulk SMS": "customer_sms/client_scripts/bulk_sms.js",
+    "MY SMS Settings": "customer_sms/client_scripts/my_sms_settings.js",
 }
 doctype_list_js = {
     "Client SMS Log": "customer_sms/client_scripts/client_sms_log_list.js"

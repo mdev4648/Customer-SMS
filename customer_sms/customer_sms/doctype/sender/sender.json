@@ -1,53 +1,45 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-09-25 00:18:00.616767",
+ "autoname": "format:{sender_name}",
+ "creation": "2025-10-13 15:08:47.969483",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "phone",
-  "message",
+  "section_break_3qk8",
   "amended_from",
   "sender_name"
  ],
  "fields": [
   {
-   "fieldname": "phone",
-   "fieldtype": "Phone",
-   "label": "Phone"
-  },
-  {
-   "fieldname": "message",
-   "fieldtype": "Data",
-   "label": "Message"
+   "fieldname": "section_break_3qk8",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "sms",
+   "options": "Sender",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
   },
   {
    "fieldname": "sender_name",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Sender Name",
-   "options": "Sender",
-   "read_only": 1
+   "fieldtype": "Data",
+   "label": "Sender Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-13 17:05:11.878347",
+ "modified": "2025-10-13 15:14:11.347395",
  "modified_by": "Administrator",
  "module": "Customer Sms",
- "name": "sms",
+ "name": "Sender",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -60,11 +52,14 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "creation",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "sender_name"
 }
